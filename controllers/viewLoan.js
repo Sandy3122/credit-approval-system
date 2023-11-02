@@ -11,9 +11,14 @@ const viewLoan = async (req, res) => {
         [loan_id]
       );
   
+      // Checking for the loan
       if (loanData.length === 0) {
-        return res.status(404).json({ error: 'Loan not found' });
+        return res.status(404).json({
+          error: 'Loan not found',
+          message: 'No loan with the provided ID was found in the database.',
+        });
       }
+      
   
       const loan = loanData[0];
   
@@ -23,9 +28,14 @@ const viewLoan = async (req, res) => {
         [loan.customer_id]
       );
   
+      // Checking for the customer
       if (customerData.length === 0) {
-        return res.status(404).json({ error: 'Customer not found' });
+        return res.status(404).json({
+          error: 'Customer not found',
+          message: 'No customer with the provided ID was found in the database.',
+        });
       }
+      
   
       const customer = customerData[0];
   
@@ -48,7 +58,7 @@ const viewLoan = async (req, res) => {
       return res.status(200).json(response);
     } catch (error) {
       console.error('Database query error:', error);
-      res.status(500).json({ error: 'An error occurred while processing your request.' });
+      res.status(500).json({ error: 'Internal Server Error', message: 'An error occurred while processing your request.' });
     }
   }
 

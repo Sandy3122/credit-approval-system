@@ -23,9 +23,15 @@ const checkEligibility = async (req, res) => {
       [customer_id]
     );
 
+    // Checking for the customer
     if (customerData.length === 0) {
-      return res.status(404).json({ error: 'Customer not found' });
+      connection.release();
+      return res.status(404).json({
+        error: 'Customer not found',
+        message: 'No customer with the provided customer_id was found in the database.',
+      });
     }
+    
 
     const { approved_limit, monthly_salary } = customerData[0];
 
@@ -105,10 +111,16 @@ const checkEligibility = async (req, res) => {
     );
 
     if (currentLoans[0].total_emis >= 0.5 * monthly_salary) {
-      return res.status(400).json({ error: 'Total EMIs exceed 50% of monthly salary' });
+      connection.release();
+      return res.status(400).json({
+        error: 'Loan not approved',
+        message: 'Total EMIs exceed 50% of your monthly salary. You are not eligible for a new loan at this time.',
+      });
     }
+    
 
     // If everything is fine, Then only we will approve the loan
+    connection.release();
     return res.status(200).json({
       customer_id,
       approval: true,
@@ -119,10 +131,12 @@ const checkEligibility = async (req, res) => {
         loan_amount,
         interest_rate,
         tenure
-      ),
-    });
-  } catch (error) {
+        ),
+      });
+      
+    } catch (error) {
     console.error('Error in /check-eligibility:', error);
+    connection.release();
     res.status(500).json({ error: 'Internal Server Error', message: 'An error occurred while processing your request.' });
   }
 }

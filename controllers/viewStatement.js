@@ -34,7 +34,7 @@ const viewStatement = async (req, res) => {
         return res.status(200).json(statement);
     } catch (error) {
         console.error('Database query error:', error);
-        res.status(500).json({ error: 'An error occurred while processing your request.' });
+        res.status(500).json({ error: 'Internal Server Error', message: 'An error occurred while processing your request.' });
     }
 }
 

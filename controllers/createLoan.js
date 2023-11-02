@@ -20,10 +20,12 @@ const createLoan = async (req, res) => {
             [customer_id]
         );
 
+        // Checking for the customer
         if (customerData.length === 0) {
             connection.release();
-            return res.status(404).json({ error: 'Customer not found' });
-        }
+            return res.status(404).json({ error: 'Customer not found', message: 'No customer with the specified ID was found.' });
+          }
+          
 
         const { approved_limit, monthly_salary } = customerData[0];
 
@@ -90,7 +92,7 @@ const createLoan = async (req, res) => {
         return res.status(201).json({ loan_id, customer_id, loan_approved: true, monthly_installment, successfulPayments, total_payable_amount, remaining_loan_amount: remainingLoanAmount, remaining_tenure: updatedTenure });
     } catch (error) {
         console.error('Database query error:', error);
-        res.status(500).json({ error: 'An error occurred while processing your request.' });
+        res.status(500).json({ error: 'Internal Server Error', message: 'An error occurred while processing your request.' });
     }
 }
 
