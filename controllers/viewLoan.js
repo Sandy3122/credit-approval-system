@@ -1,11 +1,11 @@
-// controllers/registerController.js
+// Importing pool conncetion
 const pool = require('../dataBaseConnection.js');
 
 const viewLoan = async (req, res) => {
     try {
       const loan_id = req.params.loan_id;
   
-      // Fetch loan details
+      // Fetching loan details
       const [loanData] = await pool.execute(
         'SELECT * FROM loans WHERE loan_id = ?',
         [loan_id]
@@ -17,7 +17,7 @@ const viewLoan = async (req, res) => {
   
       const loan = loanData[0];
   
-      // Fetch customer details
+      // Fetching customer details
       const [customerData] = await pool.execute(
         'SELECT * FROM customer_data WHERE customer_id = ?',
         [loan.customer_id]

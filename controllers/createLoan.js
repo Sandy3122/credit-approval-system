@@ -1,16 +1,8 @@
-// controllers/registerController.js
+// Importing pool conncetion
 const pool = require('../dataBaseConnection.js');
 
-// Define a function to calculate the monthly installment with compound interest
-function calculateMonthlyInstallment(loanAmount, interestRate, tenure) {
-    // Calculate the monthly interest rate with compound interest
-    const monthlyInterestRate = (Math.pow(1 + interestRate / 100, 1 / 12) - 1);
-
-    // Calculate the monthly installment using the compound interest formula
-    const monthlyInstallment = (loanAmount * monthlyInterestRate) / (1 - Math.pow(1 + monthlyInterestRate, -tenure));
-
-    return monthlyInstallment;
-}
+// Importing helper function
+const { calculateMonthlyInstallment } = require("../helpers/helpers.js");
 
 const createLoan = async (req, res) => {
     try {
@@ -21,7 +13,7 @@ const createLoan = async (req, res) => {
             tenure,
         } = req.body;
 
-        // Fetch customer details from the database
+        // Fetching customer details from the database
         const connection = await pool.getConnection();
         const [customerData] = await connection.execute(
             'SELECT approved_limit, monthly_salary FROM customer_data WHERE customer_id = ?',
@@ -35,13 +27,13 @@ const createLoan = async (req, res) => {
 
         const { approved_limit, monthly_salary } = customerData[0];
 
-        // Check if the loan amount exceeds the approved limit
+        // Checking if the loan amount exceeds the approved limit
         if (loan_amount > approved_limit) {
             connection.release();
             return res.status(400).json({ loan_id: null, customer_id, loan_approved: false, message: 'Loan amount exceeds approved limit' });
         }
 
-        // Check if a loan with the same customer_id already exists
+        // Checking if a loan with the same customer_id already exists
         const [existingLoan] = await connection.execute(
             'SELECT * FROM loans WHERE customer_id = ?',
             [customer_id]
@@ -52,7 +44,7 @@ const createLoan = async (req, res) => {
             return res.status(400).json({ loan_id: existingLoan[0].loan_id, customer_id, loan_approved: false, message: 'A loan already exists for this customer' });
         }
 
-        // Retrieve the appropriate loan_id from loan_data
+        // Retrieving the appropriate loan_id from loan_data
         const [loanData] = await connection.execute(
             'SELECT loan_id FROM loan_data WHERE customer_id = ?',
             [customer_id]
@@ -67,11 +59,11 @@ const createLoan = async (req, res) => {
 
         const monthly_installment = Math.round(calculateMonthlyInstallment(loan_amount, interest_rate, tenure));
 
-        // Calculate compound interest for total payable amount
+        // Calculating compound interest for total payable amount
         const compoundInterestRate = (1 + interest_rate / 100) ** (tenure / 12);
         const total_payable_amount = Math.round(loan_amount * compoundInterestRate);
 
-        // Check if the sum of all current EMIs exceeds 50% of monthly salary
+        // Checking if the sum of all current EMIs exceeds 50% of monthly salary
         const [currentLoans] = await connection.execute(
             'SELECT SUM(monthly_payment) AS total_emis FROM loans WHERE customer_id = ?',
             [customer_id]
