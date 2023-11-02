@@ -2,13 +2,16 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const mysql = require('mysql2/promise');
 const app = express();
+const dotenv = require("dotenv")
+
+dotenv.config();
 
 // Middleware to parse JSON request body
 app.use(bodyParser.json());
 
 // MySQL Database Configuration
 const dbConfig = {
-  host: 'localhost',
+  host: "localhost",
   user: 'root',
   password: 'Sandeep@3122',
   database: 'credit_approval',
