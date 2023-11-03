@@ -1,8 +1,8 @@
 // Importing pool conncetion
 const pool = require('../dataBaseConnection.js');
 
-// Importing helper function
-const { calculateMonthlyInstallment } = require("../helpers/helpers.js");
+const { calculateMonthlyInstallment } = require('../helpers/helpers.js')
+
 
 const checkEligibility = async (req, res) => {
   try {
@@ -31,7 +31,7 @@ const checkEligibility = async (req, res) => {
         message: 'No customer with the provided customer_id was found in the database.',
       });
     }
-    
+
 
     const { approved_limit, monthly_salary } = customerData[0];
 
@@ -71,24 +71,44 @@ const checkEligibility = async (req, res) => {
       }
     }
 
+    // Calculating compound interest for total payable amount
+    let compoundInterestRate = (1 + interest_rate / 100) ** (tenure / 12);
+    let total_payable_amount = Math.round(loan_amount * compoundInterestRate);
+
+
+    // Calculating monthly_installments
+    let monthly_installment = Math.round(total_payable_amount / tenure);
+
+
     // Additional credit score rules
     if (creditScore > 50) {
       // Approve the loan
+      console.log("CS: 50", monthly_installment)
       return res.status(200).json({
         customer_id,
         approval: true,
         interest_rate: interest_rate_from_user,
         corrected_interest_rate: interest_rate,
         tenure,
-        monthly_installment: calculateMonthlyInstallment(loan_amount, interest_rate, tenure),
+        monthly_installment: monthly_installment
       });
     } else if (creditScore > 30) {
       if (interest_rate <= 12) {
         interest_rate = 12; // Correct interest rate
+        // Recalculating monthly_installments with the corrected interest rate
+        let compoundInterestRate = (1 + interest_rate / 100) ** (tenure / 12);
+        total_payable_amount = Math.round(loan_amount * compoundInterestRate)
+        monthly_installment = calculateMonthlyInstallment(total_payable_amount, tenure);
+        console.log("CS: 12", monthly_installment)
       }
     } else if (creditScore > 10) {
       if (interest_rate <= 16) {
-        interest_rate = 16; // Correct interest rate
+        interest_rate = 16;
+
+        let compoundInterestRate = (1 + interest_rate / 100) ** (tenure / 12);
+        total_payable_amount = Math.round(loan_amount * compoundInterestRate)
+        monthly_installment = calculateMonthlyInstallment(total_payable_amount, tenure);
+        console.log("CS: 16", monthly_installment)
       } else {
         correctedInterestRate = interest_rate; // Use the original interest rate
       }
@@ -111,34 +131,28 @@ const checkEligibility = async (req, res) => {
     );
 
     if (currentLoans[0].total_emis >= 0.5 * monthly_salary) {
-      connection.release();
       return res.status(400).json({
         error: 'Loan not approved',
         message: 'Total EMIs exceed 50% of your monthly salary. You are not eligible for a new loan at this time.',
       });
     }
-    
 
     // If everything is fine, Then only we will approve the loan
-    connection.release();
     return res.status(200).json({
       customer_id,
       approval: true,
       interest_rate: interest_rate_from_user,
       corrected_interest_rate: interest_rate,
       tenure,
-      monthly_installment: calculateMonthlyInstallment(
-        loan_amount,
-        interest_rate,
-        tenure
-        ),
-      });
-      
-    } catch (error) {
+      monthly_installment,
+    });
+
+
+  } catch (error) {
     console.error('Error in /check-eligibility:', error);
-    connection.release();
     res.status(500).json({ error: 'Internal Server Error', message: 'An error occurred while processing your request.' });
   }
 }
+
 
 module.exports = { checkEligibility };

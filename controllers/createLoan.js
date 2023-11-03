@@ -1,9 +1,6 @@
 // Importing pool conncetion
 const pool = require('../dataBaseConnection.js');
 
-// Importing helper function
-const { calculateMonthlyInstallment } = require("../helpers/helpers.js");
-
 const createLoan = async (req, res) => {
     try {
         let {
@@ -59,11 +56,12 @@ const createLoan = async (req, res) => {
 
         const loan_id = loanData[0].loan_id;
 
-        const monthly_installment = Math.round(calculateMonthlyInstallment(loan_amount, interest_rate, tenure));
-
         // Calculating compound interest for total payable amount
         const compoundInterestRate = (1 + interest_rate / 100) ** (tenure / 12);
-        const total_payable_amount = Math.round(loan_amount * compoundInterestRate);
+        const total_payable_amount = parseFloat((loan_amount * compoundInterestRate).toFixed(2));
+
+        // Calculating monthly_installments
+        const monthly_installment = parseFloat((total_payable_amount / tenure).toFixed(2));
 
         // Checking if the sum of all current EMIs exceeds 50% of monthly salary
         const [currentLoans] = await connection.execute(
@@ -78,13 +76,12 @@ const createLoan = async (req, res) => {
 
         const remainingLoanAmount = total_payable_amount;
 
-        const updatedTenure = Math.ceil((remainingLoanAmount) / monthly_installment);
-
+        const updatedTenure = tenure;
         const successfulPayments = 0
 
         await connection.execute(
             'INSERT INTO loans(customer_id, loan_id, loan_amount, interest_rate, tenure, monthly_payment, successful_payments, remaining_loan_amount, remaining_tenure, total_payable_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [customer_id, loan_id, loan_amount, interest_rate, tenure = updatedTenure, monthly_installment, successfulPayments, remainingLoanAmount, updatedTenure, total_payable_amount]
+            [customer_id, loan_id, loan_amount, interest_rate, tenure, monthly_installment, successfulPayments, remainingLoanAmount, updatedTenure, total_payable_amount]
         );
 
         connection.release();

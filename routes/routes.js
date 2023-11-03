@@ -10,7 +10,7 @@ const { viewStatement } = require("../controllers/viewStatement");
 
 
 // Creating routes
-router.post("/register", register);
+router.post("/register", register); 
 router.post("/check-eligibility", checkEligibility);
 router.post("/create-loan", createLoan);
 router.get("/view-loan/:loan_id", viewLoan);
