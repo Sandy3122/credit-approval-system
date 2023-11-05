@@ -1,5 +1,5 @@
-// Importing pool conncetion
-const pool = require('../dataBaseConnection.js');
+// Importing pool from dbConfig.js
+const pool = require('../helpers/dbConfig.js');
 
 
 const makePayment = async (req, res) => {
@@ -16,29 +16,36 @@ const makePayment = async (req, res) => {
       });
     }
 
-
     // Fetching loan details
-    const [loanData] = await pool.execute(
+    pool.query(
       'SELECT * FROM loans WHERE loan_id = ? AND customer_id = ?',
-      [loan_id, customer_id]
-    );
+      [loan_id, customer_id],
+      (error, results) => {
+        if (error) {
+          console.error('Error executing SELECT query:', error);
+          return res.status(500).json({
+            error: 'Internal Server Error',
+            message: 'An error occurred while processing your request.',
+          });
+        }
 
-    // Checking for the loan
-    if (loanData.length === 0) {
-      return res.status(404).json({
-        error: 'Loan not found',
-        message: 'The specified loan does not exist.',
-      });
-    }
+        const loanData = results;
 
+        if (loanData.length === 0) {
+          return res.status(404).json({
+            error: 'Loan not found',
+            message: 'The specified loan does not exist.',
+          });
+        }
 
-    const loan = loanData[0];
-    let remainingLoanAmount = loan.remaining_loan_amount;
-    let monthlyPayment = loan.monthly_payment;
-    let initialTenure = loan.tenure;
-    let remainingTenure = loan.remaining_tenure;
-    let numberOfPayments = loan.successful_payments; // Get the number of successful payments from the database
+        const loan = loanData[0];
+        let remainingLoanAmount = loan.remaining_loan_amount;
+        let monthlyPayment = loan.monthly_payment;
+        let initialTenure = loan.tenure;
+        let remainingTenure = loan.remaining_tenure;
+        let numberOfPayments = loan.successful_payments; // Get the number of successful payments from the database
 
+        
     console.log(remainingLoanAmount)
     console.log(remainingTenure)
 
@@ -74,21 +81,33 @@ const makePayment = async (req, res) => {
         // Updating the values to zero
         updatedTenure = updatedRemainingLoanAmount = 0;
 
-        // Updating the database
-        await pool.execute(
+        // Use the pool to execute update queries
+        pool.query(
           'UPDATE loans SET remaining_loan_amount = ?, remaining_tenure = ?, successful_payments = ? WHERE loan_id = ? AND customer_id = ?',
-          [updatedRemainingLoanAmount, updatedTenure, numberOfPayments + paymentAmount / monthlyPayment, loan_id, customer_id] // Increment successful_payments
-        );
+          [
+            updatedRemainingLoanAmount,
+            updatedTenure,
+            numberOfPayments + paymentAmount / monthlyPayment,
+            loan_id,
+            customer_id,
+          ],
+          (updateError) => {
+            if (updateError) {
+              console.error('Error updating loan:', updateError);
+              return res.status(500).json({
+                error: 'Internal Server Error',
+                message: 'An error occurred while processing your request.',
+              });
+            }
     
         return res.status(200).json({
           success: "Congratulations! Your Loan Is Cleared",
-          message: 'You have successfully paid off your loan.',
           remaining_loan_amount: updatedRemainingLoanAmount,
           loan_id: loan.loan_id,
           tenure: updatedTenure,
           successful_payments: Math.round(numberOfPayments + paymentAmount / monthlyPayment)
         });
-
+      });
       }
       else if (paymentAmount > remainingLoanAmount) {
         return res.status(400).json({
@@ -140,26 +159,45 @@ const makePayment = async (req, res) => {
       }
     }
 
-    // Updating the loan with the new remaining loan amount, tenure, and number_of_successful_payments
-    await pool.execute(
-      'UPDATE loans SET remaining_loan_amount = ?, remaining_tenure = ?, successful_payments = ? WHERE loan_id = ? AND customer_id = ?',
-      [updatedRemainingLoanAmount, updatedTenure, numberOfPayments + paymentAmount / monthlyPayment, loan_id, customer_id] // Increment successful_payments
-    );
+        // Use the pool to execute update queries
+        pool.query(
+          'UPDATE loans SET remaining_loan_amount = ?, remaining_tenure = ?, successful_payments = ? WHERE loan_id = ? AND customer_id = ?',
+          [
+            updatedRemainingLoanAmount,
+            updatedTenure,
+            numberOfPayments + paymentAmount / monthlyPayment,
+            loan_id,
+            customer_id,
+          ],
+          (updateError) => {
+            if (updateError) {
+              console.error('Error updating loan:', updateError);
+              return res.status(500).json({
+                error: 'Internal Server Error',
+                message: 'An error occurred while processing your request.',
+              });
+            }
 
-    return res.status(200).json({
-      message: 'Payment made successfully',
-      remaining_loan_amount: updatedRemainingLoanAmount,
-      loan_id: loan.loan_id,
-      tenure: updatedTenure,
-      successful_payments: Math.round(numberOfPayments + paymentAmount / monthlyPayment)
-    });
+            return res.status(200).json({
+              message: 'Payment made successfully',
+              remaining_loan_amount: updatedRemainingLoanAmount,
+              loan_id: loan.loan_id,
+              tenure: updatedTenure,
+              successful_payments: Math.round(numberOfPayments + paymentAmount / monthlyPayment),
+            });
+          }
+        );
+      }
+    );
   } catch (error) {
     console.error('Database query error:', error);
 
-    res.status(500).json({ error: 'Internal Server Error', message: 'An error occurred while processing your request.' });
-
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'An error occurred while processing your request.',
+    });
   }
-}
+};
 
-
-module.exports = { makePayment }
+// Export the makePayment function
+module.exports = { makePayment };

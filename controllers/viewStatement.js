@@ -1,27 +1,40 @@
-// Importing pool conncetion
-const pool = require('../dataBaseConnection.js');
-
+// Importing pool from dbConfig.js
+const pool = require('../helpers/dbConfig.js');
 
 const viewStatement = async (req, res) => {
-    try {
-        const customer_id = req.params.customer_id;
-        const loan_id = req.params.loan_id;
+  try {
+    const customer_id = req.params.customer_id;
+    const loan_id = req.params.loan_id;
 
-        // Fetching loan details
-        const [loanData] = await pool.execute(
-            'SELECT * FROM loans WHERE loan_id = ? AND customer_id = ?',
-            [loan_id, customer_id]
-        );
+    // Fetching loan details
+    pool.getConnection((err, connection) => {
+      if (err) {
+        console.error('Database connection error:', err);
+        res.status(500).json({ error: 'Internal Server Error', message: 'An error occurred while processing your request.' });
+        return;
+      }
 
-        if (loanData.length === 0) {
+      connection.query(
+        'SELECT * FROM loans WHERE loan_id = ? AND customer_id = ?',
+        [loan_id, customer_id],
+        (queryError, results) => {
+          connection.release(); // Release the connection back to the pool
+
+          if (queryError) {
+            console.error('Database query error:', queryError);
+            res.status(500).json({ error: 'Internal Server Error', message: 'An error occurred while processing your request.' });
+            return;
+          }
+
+          if (results.length === 0) {
             return res.status(404).json({ error: 'Loan not found' });
-        }
+          }
 
-        const loan = loanData[0];
-        const amountPaid = loan.successful_payments * loan.monthly_payment;
-        const repaymentsLeft = loan.remaining_tenure
+          const loan = results[0];
+          const amountPaid = loan.successful_payments * loan.monthly_payment;
+          const repaymentsLeft = loan.remaining_tenure;
 
-        const statement = {
+          const statement = {
             customer_id: loan.customer_id,
             loan_id: loan.loan_id,
             principal: loan.loan_amount,
@@ -29,14 +42,16 @@ const viewStatement = async (req, res) => {
             amount_paid: amountPaid,
             monthly_installment: loan.monthly_payment,
             repayments_left: repaymentsLeft,
-        };
+          };
 
-        return res.status(200).json(statement);
-    } catch (error) {
-        console.error('Database query error:', error);
-        res.status(500).json({ error: 'Internal Server Error', message: 'An error occurred while processing your request.' });
-    }
-}
-
+          return res.status(200).json(statement);
+        }
+      );
+    });
+  } catch (error) {
+    console.error('Request error:', error);
+    res.status(500).json({ error: 'Internal Server Error', message: 'An error occurred while processing your request.' });
+  }
+};
 
 module.exports = { viewStatement };

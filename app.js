@@ -18,6 +18,9 @@ const userRoutes = require("./routes/routes")
 //Route Middlewares
 app.use("/", userRoutes);
 
+app.get('/hello', (req, res) => {
+  res.json({ message: 'Hello World!' });
+})
 
 // //Handling Requests For Non-Existing Endpoints
 // app.use((req, res, next) => {

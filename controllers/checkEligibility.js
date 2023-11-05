@@ -1,5 +1,5 @@
-// Importing pool conncetion
-const pool = require('../dataBaseConnection.js');
+// Importing pool from dbConfig.js
+const pool = require('../helpers/dbConfig.js');
 
 const { calculateMonthlyInstallment } = require('../helpers/helpers.js')
 
@@ -18,29 +18,29 @@ const checkEligibility = async (req, res) => {
     let interest_rate_from_user = interest_rate;
 
     // Fetching customer details from the database
-    const [customerData] = await pool.execute(
-      'SELECT approved_limit, monthly_salary FROM customer_data WHERE customer_id = ?',
-      [customer_id]
-    );
+    pool.query('SELECT approved_limit, monthly_salary FROM customer_data WHERE customer_id = ?', [customer_id], (error, customerData) => {
+      if (error) {
+        console.error('Error fetching customer data:', error);
+        return res.status(500).json({ error: 'Internal Server Error', message: 'An error occurred while processing your request.' });
+      }
 
-    // Checking for the customer
-    if (customerData.length === 0) {
-      connection.release();
-      return res.status(404).json({
-        error: 'Customer not found',
-        message: 'No customer with the provided customer_id was found in the database.',
-      });
-    }
+      if (customerData.length === 0) {
+        return res.status(404).json({
+          error: 'Customer not found',
+          message: 'No customer with the provided customer_id was found in the database.',
+        });
+      }
 
+      const { approved_limit, monthly_salary } = customerData[0];
 
-    const { approved_limit, monthly_salary } = customerData[0];
+      // Fetching loan history for the customer from the database
+      pool.query('SELECT emis_paid_on_time, start_date FROM loan_data WHERE customer_id = ?', [customer_id], (error, loanHistory) => {
+        if (error) {
+          console.error('Error fetching loan history:', error);
+          return res.status(500).json({ error: 'Internal Server Error', message: 'An error occurred while processing your request.' });
+        }
 
-    // Fetching loan history for the customer from the database
-    const [loanHistory] = await pool.execute(
-      'SELECT emis_paid_on_time, start_date FROM loan_data WHERE customer_id = ?',
-      [customer_id]
-    );
-
+        
     // Calculating credit score based on the provided components
     let creditScore = 0;
 
@@ -124,35 +124,36 @@ const checkEligibility = async (req, res) => {
       });
     }
 
-    // Checking if sum of all current EMIs > 50% of monthly salary
-    const [currentLoans] = await pool.execute(
-      'SELECT SUM(monthly_payment) AS total_emis FROM loan_data WHERE customer_id = ?',
-      [customer_id]
-    );
+        // Checking if sum of all current EMIs > 50% of monthly salary
+        pool.query('SELECT SUM(monthly_payment) AS total_emis FROM loan_data WHERE customer_id = ?', [customer_id], (error, currentLoans) => {
+          if (error) {
+            console.error('Error fetching current loans:', error);
+            return res.status(500).json({ error: 'Internal Server Error', message: 'An error occurred while processing your request.' });
+          }
 
-    if (currentLoans[0].total_emis >= 0.5 * monthly_salary) {
-      return res.status(400).json({
-        error: 'Loan not approved',
-        message: 'Total EMIs exceed 50% of your monthly salary. You are not eligible for a new loan at this time.',
+          if (currentLoans[0].total_emis >= 0.5 * monthly_salary) {
+            return res.status(400).json({
+              error: 'Loan not approved',
+              message: 'Total EMIs exceed 50% of your monthly salary. You are not eligible for a new loan at this time.',
+            });
+          }
+
+          // If everything is fine, then only we will approve the loan
+          return res.status(200).json({
+            customer_id,
+            approval: true,
+            interest_rate: interest_rate_from_user,
+            corrected_interest_rate: interest_rate,
+            tenure,
+            monthly_installment,
+          });
+        });
       });
-    }
-
-    // If everything is fine, Then only we will approve the loan
-    return res.status(200).json({
-      customer_id,
-      approval: true,
-      interest_rate: interest_rate_from_user,
-      corrected_interest_rate: interest_rate,
-      tenure,
-      monthly_installment,
     });
-
-
   } catch (error) {
     console.error('Error in /check-eligibility:', error);
     res.status(500).json({ error: 'Internal Server Error', message: 'An error occurred while processing your request.' });
   }
-}
-
+};
 
 module.exports = { checkEligibility };
