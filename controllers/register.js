@@ -3,7 +3,6 @@ const { calculateApprovedLimit } = require("../helpers/helpers.js");
 
 const pool = require('../helpers/dbConfig.js');
 
-
 const register = async (req, res) => {
   try {
     console.log('Request Body:', req.body);
